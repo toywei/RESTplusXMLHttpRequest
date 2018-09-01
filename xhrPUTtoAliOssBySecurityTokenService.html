@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='UTF-8'>
+    <title>Title</title>
+</head>
+
+<body>
+<input type='file' id='fileInput' onchange='uploadFile()'> 请点击上传文件
+</body>
+
+</html>
+<script type="text/javascript" src="./crypto-js/crypto-js.js"></script>
+
+<script>
+    const sleep = function (ms) {
+        return new Promise(function (resolve, reject) {
+            setTimeout(function () {
+                resolve()
+            }, ms)
+        })
+    }
+    const waitServerDeal = async function (ms) {
+        console.log('start-Req')
+        // 请求服务器获取tts相关字段
+        // 可通过CROS对前后端进行配置，解决跨域问题
+        const ourSTSurl = 'http://genSecurityTokenServiceByGoEcho.com:1324/aliSTS/33333'
+        const xhr = new XMLHttpRequest()
+        const verb = 'GET'
+        xhr.open(verb, ourSTSurl)
+        xhr.setRequestHeader('Access-Control-Allow-Origin', '*')
+        xhr.send()
+        // 等待响应耗时
+        await sleep(ms)
+        console.log('end-start-parsResp')
+        const resp = JSON.parse(xhr.response)
+        console.log(resp)
+        // 讨论接口返回值
+        if ('AccessKeyId' in resp) {
+            const AccessKeyId = resp.AccessKeyId
+            const AccessKeySecret = resp.AccessKeySecret
+            const Expiration = resp.Expiration
+            const SecurityToken = resp.SecurityToken
+
+            // 上传
+            const file = fileInput.files[0]
+            const aliHost = 'bizBucket.oss-cn-hangzhou.aliyuncs.com'
+            const VERB = 'PUT'
+            const dGMT = new Date().toUTCString()
+            const ContentType = file.type
+            const ContentMD5 = ''
+            const CanonicalizedOSSHeaders = 'x-oss-content-length:' + file.size + '\nx-oss-date:' + dGMT +
+                    '\nx-oss-host:' + aliHost + '\nx-oss-security-token:' + SecurityToken
+            const ossBucketName = 'bizBucket'
+
+            if (file.name.endsWith(".mp4")) {
+                ossBizConfigRes = '/uploads/video/26/'
+            } else {
+                ossBizConfigRes = '/uploads/imgs/26/'
+            }
+            const ossKey = ossBizConfigRes + file.name
+            const CanonicalizedResource = '/' + ossBucketName + ossKey
+            console.log(CanonicalizedResource)
+            const message = VERB + '\n' + ContentMD5 + '\n' + ContentType + '\n' + dGMT + '\n' +
+                    CanonicalizedOSSHeaders + '\n' + CanonicalizedResource
+            console.log(message)
+
+            // 简单的REST接口，在任何时间、任何地点、任何互联网设备上进行上传和下载数据
+
+            // 公共HTTP头定义_API 参考_对象存储 OSS-阿里云 https://help.aliyun.com/document_detail/31955.html
+            // PutObject_关于Object操作_API 参考_对象存储 OSS-阿里云 https://help.aliyun.com/document_detail/31978.html
+            // 在Header中包含签名_访问控制_API 参考_对象存储 OSS-阿里云 https://help.aliyun.com/document_detail/31951.html
+
+            // 加密方法
+            // crypto-js - npm https://www.npmjs.com/package/crypto-js
+
+            const hash = CryptoJS.HmacSHA1(message, AccessKeySecret);
+            const base64 = CryptoJS.enc.Base64.stringify(hash);
+            // CryptoJS.enc.Base64.stringify(hash) === hash.toString(CryptoJS.enc.Base64)   
+            const Authorization = 'OSS ' + AccessKeyId + ':' + base64
+            console.log(Authorization)
+            const myReq = new XMLHttpRequest()
+            // 结合file.type、上传者身份、存储逻辑设置oss文件key
+            const reqUrl = 'https://' + aliHost + ossKey
+            myReq.open('PUT', reqUrl)
+            myReq.setRequestHeader('Authorization', Authorization)
+            myReq.setRequestHeader('x-oss-host', aliHost)
+            myReq.setRequestHeader('x-oss-content-length', file.size)
+            myReq.setRequestHeader('Content-Type', file.type)
+            myReq.setRequestHeader('x-oss-date', dGMT)
+            myReq.setRequestHeader('x-oss-security-token', SecurityToken)
+            myReq.send(file)
+            console.log(myReq)
+            // calllback
+        }
+    }
+
+    // 监听文件提交
+    const uploadFile = () => {
+        console.log(33)
+        const fileInput = document.getElementById('fileInput')
+        // 判断待文件是否存在
+        if (fileInput.files.length > 0) {
+            waitServerDeal(5000)
+        }
+    }
+</script>
